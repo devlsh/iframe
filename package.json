@@ -1,5 +1,5 @@
 {
-  "name": "@evilkiwi/iframe",
+  "name": "@devlsh/iframe",
   "version": "1.0.3",
   "description": "React Utility Hook for cross-origin iFrame IPC",
   "files": [
@@ -14,13 +14,13 @@
     "url": "https://evil.kiwi",
     "email": "support@evil.kiwi"
   },
-  "homepage": "https://github.com/evilkiwi/iframe",
+  "homepage": "https://github.com/devlsh/iframe",
   "bugs": {
-    "url": "https://github.com/evilkiwi/iframe/issues"
+    "url": "https://github.com/devlsh/iframe/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/evilkiwi/iframe.git"
+    "url": "git+https://github.com/devlsh/iframe.git"
   },
   "keywords": [
     "typescript",
@@ -34,7 +34,11 @@
     "prepack": "pnpm run build",
     "build": "pnpm run clean && pnpm run compile",
     "compile": "vite build",
-    "dev": "vite build --watch"
+    "dev": "vite build --watch",
+    "test:package": "node scripts/verify-package.mjs"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0"
   },
   "devDependencies": {
     "@ianvs/prettier-plugin-sort-imports": "^4.1.1",

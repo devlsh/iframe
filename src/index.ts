@@ -32,84 +32,101 @@ export function useIFrame({
   // Whether or not we're connected to the remote.
   const [connected, setConnected] = useState(false);
 
+  let remoteOrigin: string | null = remote;
+  if (remote !== '*' && remote !== '/') {
+    try {
+      remoteOrigin = new URL(remote).origin;
+    } catch {
+      remoteOrigin = null;
+    }
+  }
+
   // Handler for any messages coming in.
-  const messageHandler = useCallback(async ({ origin, source, data }: MessageEvent) => {
-    if (!data?.id || !data?.type || !data?.payload) {
-      return;
-    } else if (data.id !== id) {
-      return;
-    }
-
-    const { type, payload } = data as OutgoingMessageBody;
-
-    if (type === '_async_response') {
-      if (typeof payload?.asyncId !== 'number' || typeof payload?.payload === 'undefined') {
+  const messageHandler = useCallback(
+    async ({ origin, source, data }: MessageEvent) => {
+      const expectedOrigin = remoteOrigin === '/' ? window.location.origin : remoteOrigin;
+      if (expectedOrigin !== '*' && (expectedOrigin === null || expectedOrigin === 'null' || origin !== expectedOrigin)) {
         return;
       }
 
-      const { asyncId, payload: asyncPayload } = payload;
-      const promise = promises.current[`${asyncId}`];
+      if (!data?.id || !data?.type || !data?.payload) {
+        return;
+      } else if (data.id !== id) {
+        return;
+      }
 
-      shouldDebug && debug(id, mode, 'processing incoming async response', asyncPayload);
+      const { type, payload } = data as OutgoingMessageBody;
 
-      if (!!promise) {
-        shouldDebug && debug(id, mode, 'found promise for async response');
+      if (type === '_async_response') {
+        if (typeof payload?.asyncId !== 'number' || typeof payload?.payload === 'undefined') {
+          return;
+        }
 
-        clearTimeout(promise.timeout);
+        const { asyncId, payload: asyncPayload } = payload;
+        const promise = promises.current[`${asyncId}`];
 
-        if (isErr(asyncPayload)) {
-          promise.reject(decodeErr(asyncPayload));
+        shouldDebug && debug(id, mode, 'processing incoming async response', asyncPayload);
+
+        if (!!promise) {
+          shouldDebug && debug(id, mode, 'found promise for async response');
+
+          clearTimeout(promise.timeout);
+
+          if (isErr(asyncPayload)) {
+            promise.reject(decodeErr(asyncPayload));
+          } else {
+            promise.resolve(asyncPayload);
+          }
+
+          removePromise(asyncId);
         } else {
-          promise.resolve(asyncPayload);
+          shouldDebug && debug(id, mode, 'no promise found for async response', asyncId);
+        }
+      } else if (type === '_async_request') {
+        if (typeof payload?.asyncId !== 'number' || !payload?.type || !payload?.payload) {
+          return;
         }
 
-        removePromise(asyncId);
+        const { asyncId, payload: asyncPayload } = payload;
+        const handler = handlers.current[payload.type];
+
+        shouldDebug && debug(id, mode, 'processing incoming async request', payload);
+
+        if (!!handler) {
+          try {
+            const response = await handler(asyncPayload);
+
+            post({
+              type: '_async_response',
+              payload: {
+                asyncId,
+                payload: response,
+              },
+            });
+          } catch (e) {
+            post({
+              type: '_async_response',
+              payload: {
+                asyncId,
+                payload: encodeErr(e as Error),
+              },
+            });
+          }
+        }
       } else {
-        shouldDebug && debug(id, mode, 'no promise found for async response', asyncId);
-      }
-    } else if (type === '_async_request') {
-      if (typeof payload?.asyncId !== 'number' || !payload?.type || !payload?.payload) {
-        return;
-      }
+        const eventHandler = events.current[type];
 
-      const { asyncId, payload: asyncPayload } = payload;
-      const handler = handlers.current[payload.type];
-
-      shouldDebug && debug(id, mode, 'processing incoming async request', payload);
-
-      if (!!handler) {
-        try {
-          const response = await handler(asyncPayload);
-
-          post({
-            type: '_async_response',
-            payload: {
-              asyncId,
-              payload: response,
-            },
-          });
-        } catch (e) {
-          post({
-            type: '_async_response',
-            payload: {
-              asyncId,
-              payload: encodeErr(e as Error),
-            },
-          });
+        if (!eventHandler) {
+          return;
         }
+
+        shouldDebug && debug(id, mode, 'processing incoming sync event', type, payload);
+
+        eventHandler(payload);
       }
-    } else {
-      const eventHandler = events.current[type];
-
-      if (!eventHandler) {
-        return;
-      }
-
-      shouldDebug && debug(id, mode, 'processing incoming sync event', type, payload);
-
-      eventHandler(payload);
-    }
-  }, []);
+    },
+    [remoteOrigin],
+  );
 
   // Ensure the global message handler is registered and listening.
   useEffect(() => {

@@ -18,8 +18,11 @@ export interface UseIFrameOptions {
   frame?: RefObject<HTMLIFrameElement>;
 
   /**
-   * Only applies to Host mode. The URL of the remote iFrame being loaded.
-   * This is required to enforce cross-origin safety.
+   * Absolute remote URL or origin used to restrict incoming messages in both modes.
+   * Use the iframe URL for a host and the parent URL for a client.
+   * '/' restricts messages to this window's origin; '*' (the default) leaves origins unrestricted.
+   * Malformed URLs and opaque URL origins do not authorize incoming messages.
+   * Hosts also pass this value as the outgoing postMessage targetOrigin.
    */
   remote?: string;
 
