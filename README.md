@@ -39,9 +39,3 @@ npm install @devlsh/iframe
 ## Usage
 
 TODO:
-
-## Package verification
-
-Run `pnpm dlx --package=pnpm@8.15.9 pnpm test:package`. Open the local URL printed by the script in a real browser. The script installs a
-fresh local tarball in a temporary consumer, checks native CJS/ESM imports and declarations, then runs the mounted React IPC protocol. It
-exits after the browser reports its results. Any failed contract exits nonzero; results remain in the printed temporary directory.
